@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Listen</title>
+  <style>
+    :root {
+      --bg-color: #121212;
+      --text-color: #ffffff;
+      --button-bg: #1f1f1f;
+      --button-hover-bg: #333333;
+      --button-text-color: #ffffff;
+      --status-color: #4caf50;
+      --error-color: #f44336;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      text-align: center;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      padding: 20px;
+    }
+
+    button {
+      font-size: 18px;
+      padding: 15px 25px;
+      margin-top: 20px;
+      border: none;
+      border-radius: 5px;
+      background-color: var(--button-bg);
+      color: var(--button-text-color);
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: var(--button-hover-bg);
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    #status {
+      color: var(--status-color);
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 600px) {
+      button {
+        font-size: 16px;
+        padding: 12px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Live Listen</h1>
+    <p>Press the button to start or stop listening.</p>
+    <button id="toggle">Start Listening</button>
+    <p id="status"></p>
+  </div>
+
+  <script>
+    const button = document.getElementById('toggle');
+    const status = document.getElementById('status');
+    let audioContext = null;
+    let mediaStream = null;
+    let mediaStreamSource = null;
+
+    // Prevent delay on iOS by resuming AudioContext immediately after user interaction
+    const ensureAudioContextResumed = async () => {
+      if (audioContext && audioContext.state === 'suspended') {
+        await audioContext.resume();
+      }
+    };
+
+    button.addEventListener('click', async () => {
+      await ensureAudioContextResumed();
+
+      if (!audioContext) {
+        // Start the audio context and capture the microphone audio
+        try {
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaStreamSource = audioContext.createMediaStreamSource(mediaStream);
+
+          // Connect the microphone audio to the output (speakers/headphones)
+          mediaStreamSource.connect(audioContext.destination);
+
+          status.textContent = 'Listening...';
+          status.style.color = 'var(--status-color)';
+          button.textContent = 'Stop Listening';
+        } catch (error) {
+          console.error('Error accessing microphone:', error);
+          status.textContent = 'Error: Unable to access microphone.';
+          status.style.color = 'var(--error-color)';
+        }
+      } else {
+        // Stop the audio context
+        audioContext.close();
+        audioContext = null;
+
+        // Stop the media stream
+        mediaStream.getTracks().forEach((track) => track.stop());
+        mediaStream = null;
+
+        status.textContent = '';
+        button.textContent = 'Start Listening';
+      }
+    });
+
+    // Ensure it works well in standalone mode (Added to Home Screen)
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      console.log('Running in standalone mode.');
+    }
+  </script>
+</body>
+</html>
